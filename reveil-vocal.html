@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Réveil vocal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+  :root{
+    --bg-night:#141b33;
+    --bg-night-2:#1d2748;
+    --card:#212c52;
+    --card-hover:#28356338d
+    ;
+    --accent:#f2a65a;
+    --accent-soft:#f4c9b5;
+    --accent-deep:#e97b4f;
+    --text:#f6f3ee;
+    --text-muted:#9aa4c7;
+    --danger:#e3667a;
+    --ok:#7fd6a8;
+    --radius:20px;
+  }
+
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:'Inter',sans-serif;
+    background:
+      radial-gradient(120% 60% at 50% -10%, #2c3a68 0%, var(--bg-night) 55%),
+      var(--bg-night);
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+  }
+  #app{
+    width:100%;
+    max-width:480px;
+    min-height:100vh;
+    padding:28px 20px 120px;
+    position:relative;
+  }
+
+  header{margin-bottom:28px;}
+  .eyebrow{
+    font-size:13px;
+    color:var(--text-muted);
+    margin:0 0 4px;
+  }
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:30px;
+    margin:0 0 2px;
+    background:linear-gradient(90deg, var(--text) 40%, var(--accent-soft));
+    -webkit-background-clip:text;
+    background-clip:text;
+  }
+  .clock-now{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:15px;
+    color:var(--text-muted);
+  }
+
+  .alarm-list{display:flex; flex-direction:column; gap:14px;}
+
+  .alarm-card{
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:18px 18px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    border:1px solid rgba(255,255,255,0.05);
+    transition:opacity .2s ease;
+  }
+  .alarm-card.disabled{opacity:.45;}
+
+  .alarm-time{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:32px;
+    font-weight:600;
+    letter-spacing:0.5px;
+    min-width:100px;
+  }
+  .alarm-info{flex:1; min-width:0;}
+  .alarm-label{font-size:14px; color:var(--text); margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .alarm-meta{font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:6px;}
+  .mic-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;}
+  .no-rec{color:#e3667a;}
+
+  .alarm-actions{display:flex; align-items:center; gap:10px;}
+  .icon-btn{
+    background:none; border:none; color:var(--text-muted);
+    padding:6px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .icon-btn svg{width:20px; height:20px;}
+  .icon-btn:active{color:var(--accent);}
+
+  .switch{
+    position:relative; width:44px; height:26px; flex-shrink:0;
+  }
+  .switch input{opacity:0; width:0; height:0;}
+  .slider{
+    position:absolute; inset:0; background:#3a4472; border-radius:99px; cursor:pointer; transition:.2s;
+  }
+  .slider::before{
+    content:""; position:absolute; width:20px; height:20px; left:3px; top:3px;
+    background:#fff; border-radius:50%; transition:.2s;
+  }
+  input:checked + .slider{background:var(--accent);}
+  input:checked + .slider::before{transform:translateX(18px);}
+
+  .empty-state{
+    text-align:center; padding:60px 20px; color:var(--text-muted);
+  }
+  .empty-state svg{width:48px; height:48px; margin-bottom:14px; opacity:.6;}
+  .empty-state p{margin:0; font-size:14px; line-height:1.5;}
+
+  .fab{
+    position:fixed;
+    bottom:28px; left:50%;
+    transform:translateX(-50%);
+    width:100%; max-width:480px;
+    padding:0 20px;
+    display:flex; justify-content:flex-end;
+    pointer-events:none;
+  }
+  .fab button{
+    pointer-events:auto;
+    width:58px; height:58px; border-radius:50%; border:none;
+    background:linear-gradient(135deg, var(--accent), var(--accent-deep));
+    color:#1a1330;
+    font-size:28px; line-height:1;
+    box-shadow:0 8px 24px rgba(242,166,90,0.35);
+    cursor:pointer;
+  }
+
+  /* Sheet / modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(10,14,28,0.65);
+    display:none; align-items:flex-end; justify-content:center; z-index:50;
+  }
+  .overlay.show{display:flex;}
+  .sheet{
+    background:var(--bg-night-2);
+    width:100%; max-width:480px;
+    border-radius:24px 24px 0 0;
+    padding:22px 22px 30px;
+    animation:slideup .25s ease;
+  }
+  @keyframes slideup{from{transform:translateY(30px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  .sheet h2{
+    font-family:'Space Grotesk',sans-serif; font-size:20px; margin:0 0 20px;
+  }
+  .field{margin-bottom:18px;}
+  .field label{display:block; font-size:12px; color:var(--text-muted); margin-bottom:6px;}
+  .field input[type=time]{
+    background:var(--card); border:1px solid rgba(255,255,255,0.08); color:var(--text);
+    font-family:'Space Grotesk',sans-serif; font-size:26px; border-radius:14px; padding:10px 14px; width:100%;
+  }
+  .field input[type=text]{
+    background:var(--card); border:1px solid rgba(255,255,255,0.08); color:var(--text);
+    font-family:'Inter',sans-serif; font-size:15px; border-radius:14px; padding:12px 14px; width:100%;
+  }
+
+  .record-box{
+    background:var(--card); border-radius:16px; padding:18px; text-align:center;
+  }
+  .rec-btn{
+    width:64px; height:64px; border-radius:50%; border:none; cursor:pointer;
+    background:var(--danger); color:white; font-size:24px; margin:0 auto 10px;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 0 0 0 rgba(227,102,122,0.5);
+  }
+  .rec-btn.recording{animation:pulse 1.2s infinite;}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(227,102,122,0.5);}
+    70%{box-shadow:0 0 0 16px rgba(227,102,122,0);}
+    100%{box-shadow:0 0 0 0 rgba(227,102,122,0);}
+  }
+  .rec-status{font-size:13px; color:var(--text-muted); margin-bottom:2px;}
+  .rec-time{font-family:'Space Grotesk',sans-serif; font-size:15px; color:var(--text);}
+  .preview-row{display:flex; align-items:center; justify-content:center; gap:12px; margin-top:12px;}
+  .preview-row button{
+    background:var(--bg-night); border:1px solid rgba(255,255,255,0.1); color:var(--text);
+    border-radius:12px; padding:8px 14px; font-size:13px; cursor:pointer;
+  }
+
+  .sheet-actions{display:flex; gap:10px; margin-top:22px;}
+  .btn{
+    flex:1; border:none; border-radius:14px; padding:14px; font-size:15px; font-weight:600; cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  .btn-primary{background:var(--accent); color:#241a0c;}
+  .btn-primary:disabled{opacity:.4;}
+  .btn-ghost{background:transparent; color:var(--text-muted); border:1px solid rgba(255,255,255,0.1);}
+
+  /* Ringing overlay */
+  .ring-overlay{
+    position:fixed; inset:0; z-index:100;
+    background:
+      radial-gradient(120% 80% at 50% 0%, #3a2c63 0%, var(--bg-night) 60%);
+    display:none; flex-direction:column; align-items:center; justify-content:center; padding:40px;
+    text-align:center;
+  }
+  .ring-overlay.show{display:flex;}
+  .ring-pulse{
+    width:120px; height:120px; border-radius:50%;
+    background:linear-gradient(135deg, var(--accent), var(--accent-deep));
+    display:flex; align-items:center; justify-content:center; margin-bottom:26px;
+    animation:ringpulse 1s infinite;
+  }
+  @keyframes ringpulse{
+    0%{transform:scale(1);} 50%{transform:scale(1.08);} 100%{transform:scale(1);}
+  }
+  .ring-time{font-family:'Space Grotesk',sans-serif; font-size:48px; font-weight:600;}
+  .ring-label{color:var(--text-muted); margin-top:6px; margin-bottom:36px;}
+  .ring-actions{display:flex; gap:14px; width:100%; max-width:320px;}
+
+  .toast{
+    position:fixed; bottom:100px; left:50%; transform:translateX(-50%);
+    background:var(--card); color:var(--text); padding:10px 18px; border-radius:99px;
+    font-size:13px; z-index:200; opacity:0; transition:opacity .3s; pointer-events:none;
+  }
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <p class="eyebrow" id="dateLine">—</p>
+    <h1>Réveil vocal</h1>
+    <p class="clock-now" id="nowClock">--:--</p>
+  </header>
+
+  <div class="alarm-list" id="alarmList"></div>
+</div>
+
+<div class="fab"><button id="addBtn" aria-label="Ajouter une alarme">+</button></div>
+
+<!-- Sheet: create/edit alarm -->
+<div class="overlay" id="editOverlay">
+  <div class="sheet">
+    <h2 id="sheetTitle">Nouvelle alarme</h2>
+    <div class="field">
+      <label>Heure</label>
+      <input type="time" id="timeInput">
+    </div>
+    <div class="field">
+      <label>Nom (optionnel)</label>
+      <input type="text" id="labelInput" placeholder="Ex. Réveil boulot">
+    </div>
+    <div class="field">
+      <label>Message vocal</label>
+      <div class="record-box">
+        <button class="rec-btn" id="recBtn">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><circle cx="12" cy="12" r="8"/></svg>
+        </button>
+        <div class="rec-status" id="recStatus">Appuie pour enregistrer ta voix</div>
+        <div class="rec-time" id="recTime"></div>
+        <div class="preview-row" id="previewRow" style="display:none;">
+          <button id="playPreviewBtn">▶ Écouter</button>
+          <button id="reRecordBtn">↺ Refaire</button>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-ghost" id="cancelBtn">Annuler</button>
+      <button class="btn btn-primary" id="saveBtn" disabled>Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ringing overlay -->
+<div class="ring-overlay" id="ringOverlay">
+  <div class="ring-pulse">
+    <svg viewBox="0 0 24 24" fill="#241a0c" width="46" height="46"><path d="M12 2a3 3 0 00-3 3v6a3 3 0 006 0V5a3 3 0 00-3-3zm5 9a5 5 0 01-10 0H5a7 7 0 006 6.92V20H9v2h6v-2h-2v-2.08A7 7 0 0019 11h-2z"/></svg>
+  </div>
+  <div class="ring-time" id="ringTime">07:00</div>
+  <div class="ring-label" id="ringLabel">Alarme</div>
+  <div class="ring-actions">
+    <button class="btn btn-ghost" id="snoozeBtn">Répéter (+5 min)</button>
+    <button class="btn btn-primary" id="stopRingBtn">Arrêter</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'alarms-v1';
+  let alarms = [];
+  let editingId = null;
+  let mediaRecorder, recordedChunks, recordStart, recTimerInt;
+  let currentAudioB64 = null;
+  let previewAudio = null;
+  let ringingAlarm = null;
+  let ringAudio = null;
+  let lastTriggerMinute = null;
+
+  const $ = (id) => document.getElementById(id);
+  const alarmListEl = $('alarmList');
+  const nowClockEl = $('nowClock');
+  const dateLineEl = $('dateLine');
+
+  function showToast(msg){
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'), 2200);
+  }
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+
+  function updateClock(){
+    const now = new Date();
+    nowClockEl.textContent = pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+    const days = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+    const months = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+    dateLineEl.textContent = days[now.getDay()]+' '+now.getDate()+' '+months[now.getMonth()];
+
+    const hm = pad(now.getHours())+':'+pad(now.getMinutes());
+    if (hm !== lastTriggerMinute){
+      lastTriggerMinute = hm;
+      checkAlarms(hm);
+    }
+  }
+
+  function checkAlarms(hm){
+    if (ringingAlarm) return;
+    const match = alarms.find(a => a.enabled && a.time === hm);
+    if (match) triggerAlarm(match);
+  }
+
+  function triggerAlarm(alarm){
+    ringingAlarm = alarm;
+    $('ringTime').textContent = alarm.time;
+    $('ringLabel').textContent = alarm.label || 'Alarme';
+    $('ringOverlay').classList.add('show');
+    if (navigator.vibrate) navigator.vibrate([400,200,400,200,400]);
+
+    if (alarm.audio){
+      ringAudio = new Audio(alarm.audio);
+      ringAudio.loop = true;
+      ringAudio.play().catch(()=>showToast('Appuie sur l\'écran pour activer le son'));
+    }
+  }
+
+  function stopRinging(){
+    if (ringAudio){ ringAudio.pause(); ringAudio = null; }
+    $('ringOverlay').classList.remove('show');
+    ringingAlarm = null;
+  }
+
+  $('stopRingBtn').onclick = stopRinging;
+  $('snoozeBtn').onclick = () => {
+    const a = ringingAlarm;
+    stopRinging();
+    if (!a) return;
+    const d = new Date();
+    d.setMinutes(d.getMinutes()+5);
+    const snoozeTime = pad(d.getHours())+':'+pad(d.getMinutes());
+    const tempId = 'snooze-'+Date.now();
+    alarms.push({ id: tempId, time: snoozeTime, label: (a.label||'Alarme')+' (répétée)', audio: a.audio, enabled: true, isSnooze:true });
+    showToast('Reprogrammée à '+snoozeTime);
+    render();
+  };
+
+  // --- Storage ---
+  async function loadAlarms(){
+    try{
+      const res = await window.storage.get(STORAGE_KEY, false);
+      alarms = res && res.value ? JSON.parse(res.value) : [];
+    }catch(e){
+      alarms = [];
+    }
+    render();
+  }
+  async function saveAlarms(){
+    try{
+      await window.storage.set(STORAGE_KEY, JSON.stringify(alarms), false);
+    }catch(e){
+      showToast('Sauvegarde impossible dans ce contexte');
+    }
+  }
+
+  // --- Rendering ---
+  function render(){
+    alarms.sort((a,b)=> a.time.localeCompare(b.time));
+    if (alarms.length === 0){
+      alarmListEl.innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M8 3l-2 2M16 3l2 2"/></svg>
+          <p>Aucune alarme pour l'instant.<br>Ajoute-en une et enregistre ta propre voix pour le réveil.</p>
+        </div>`;
+      return;
+    }
+    alarmListEl.innerHTML = alarms.map(a => `
+      <div class="alarm-card ${a.enabled ? '' : 'disabled'}" data-id="${a.id}">
+        <div class="alarm-time">${a.time}</div>
+        <div class="alarm-info">
+          <div class="alarm-label">${a.label ? escapeHtml(a.label) : 'Sans nom'}</div>
+          <div class="alarm-meta">
+            ${a.audio ? '<span class="mic-dot"></span> message vocal' : '<span class="no-rec">aucun enregistrement</span>'}
+          </div>
+        </div>
+        <div class="alarm-actions">
+          ${a.audio ? `<button class="icon-btn" data-action="play" aria-label="Écouter">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>` : ''}
+          <button class="icon-btn" data-action="delete" aria-label="Supprimer">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 7h12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-8 0v12a1 1 0 001 1h6a1 1 0 001-1V7"/></svg>
+          </button>
+          <label class="switch">
+            <input type="checkbox" ${a.enabled ? 'checked' : ''} data-action="toggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  alarmListEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const card = e.target.closest('.alarm-card');
+    const id = card.dataset.id;
+    const alarm = alarms.find(a => a.id === id);
+    const action = btn.dataset.action;
+
+    if (action === 'toggle'){
+      alarm.enabled = btn.checked;
+      saveAlarms(); render();
+    } else if (action === 'delete'){
+      alarms = alarms.filter(a => a.id !== id);
+      saveAlarms(); render();
+    } else if (action === 'play'){
+      const audio = new Audio(alarm.audio);
+      audio.play();
+    }
+  });
+
+  // --- Add / edit sheet ---
+  const editOverlay = $('editOverlay');
+  $('addBtn').onclick = () => openSheet();
+
+  function openSheet(){
+    editingId = null;
+    currentAudioB64 = null;
+    $('sheetTitle').textContent = 'Nouvelle alarme';
+    $('timeInput').value = '07:00';
+    $('labelInput').value = '';
+    resetRecordUI();
+    editOverlay.classList.add('show');
+  }
+  $('cancelBtn').onclick = () => { editOverlay.classList.remove('show'); stopRecordingIfActive(); };
+
+  function resetRecordUI(){
+    $('recStatus').textContent = "Appuie pour enregistrer ta voix";
+    $('recTime').textContent = '';
+    $('previewRow').style.display = 'none';
+    $('recBtn').classList.remove('recording');
+    $('saveBtn').disabled = true;
+  }
+
+  $('recBtn').onclick = async () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording'){
+      mediaRecorder.stop();
+      return;
+    }
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+      recordedChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size>0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t=>t.stop());
+        clearInterval(recTimerInt);
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        currentAudioB64 = await blobToBase64(blob);
+        $('recBtn').classList.remove('recording');
+        $('recStatus').textContent = 'Enregistrement prêt';
+        $('previewRow').style.display = 'flex';
+        $('saveBtn').disabled = false;
+      };
+      mediaRecorder.start();
+      recordStart = Date.now();
+      $('recBtn').classList.add('recording');
+      $('recStatus').textContent = 'Enregistrement en cours…';
+      recTimerInt = setInterval(()=>{
+        const s = Math.floor((Date.now()-recordStart)/1000);
+        $('recTime').textContent = pad(Math.floor(s/60))+':'+pad(s%60);
+      }, 200);
+    }catch(err){
+      showToast("Accès au micro refusé ou indisponible");
+    }
+  };
+
+  function stopRecordingIfActive(){
+    if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+  }
+
+  function blobToBase64(blob){
+    return new Promise((resolve,reject)=>{
+      const r = new FileReader();
+      r.onloadend = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  $('reRecordBtn').onclick = () => {
+    currentAudioB64 = null;
+    resetRecordUI();
+  };
+  $('playPreviewBtn').onclick = () => {
+    if (!currentAudioB64) return;
+    new Audio(currentAudioB64).play();
+  };
+
+  $('saveBtn').onclick = () => {
+    const time = $('timeInput').value;
+    if (!time){ showToast('Choisis une heure'); return; }
+    const label = $('labelInput').value.trim();
+    alarms.push({
+      id: 'a-'+Date.now(),
+      time, label,
+      audio: currentAudioB64,
+      enabled: true
+    });
+    saveAlarms(); render();
+    editOverlay.classList.remove('show');
+    showToast('Alarme enregistrée');
+  };
+
+  // init
+  loadAlarms();
+  setInterval(updateClock, 1000);
+  updateClock();
+})();
+</script>
+</body>
+</html>
